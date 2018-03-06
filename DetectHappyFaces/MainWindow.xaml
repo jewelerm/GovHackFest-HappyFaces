@@ -6,8 +6,9 @@
         <Image x:Name="FacePhoto" Stretch="Uniform" Margin="0,0,0,50" MouseMove="FacePhoto_MouseMove" />
         <DockPanel DockPanel.Dock="Bottom">
             <Button x:Name="BrowseButton" Width="72" Height="20" VerticalAlignment="Bottom" HorizontalAlignment="Left"
-                    Content="Browse..."
+                    Content="Get..."
                     Click="BrowseButton_Click" />
+            <TextBox x:Name="text1" Height="23" TextWrapping="Wrap" Text="TextBox" Width="120"/>
             <StatusBar VerticalAlignment="Bottom">
                 <StatusBarItem>
                     <TextBlock Name="faceDescriptionStatusBar" />

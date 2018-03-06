@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,6 +11,8 @@ using System.Windows.Media.Imaging;
 using Microsoft.ProjectOxford.Common.Contract;
 using Microsoft.ProjectOxford.Face;
 using Microsoft.ProjectOxford.Face.Contract;
+using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace DetectHappyFaces
 {
@@ -42,33 +45,50 @@ namespace DetectHappyFaces
         private async void BrowseButton_Click(object sender, RoutedEventArgs e)
         {
             // Get the image file to scan from the user.
-            var openDlg = new Microsoft.Win32.OpenFileDialog();
+            //var openDlg = new Microsoft.Win32.OpenFileDialog();
 
-            openDlg.Filter = "JPEG Image(*.jpg)|*.jpg";
-            bool? result = openDlg.ShowDialog(this);
+            //openDlg.Filter = "JPEG Image(*.jpg)|*.jpg";
+            //bool? result = openDlg.ShowDialog(this);
 
-            // Return if canceled.
-            if (!(bool)result)
-            {
-                return;
-            }
+            //// Return if canceled.
+            //if (!(bool)result)
+            //{
+            //    return;
+            //}
 
             // Display the image file.
-            string filePath = openDlg.FileName;
+            string filePath = text1.Text;
 
-            Uri fileUri = new Uri(filePath);
+            //Uri fileUri = new Uri(filePath);
             BitmapImage bitmapSource = new BitmapImage();
+
+            CloudStorageAccount storageAccount = null;
+            CloudBlobClient blobClient = null;
+            CloudBlobContainer container = null;
+            CloudBlockBlob blockBlob = null;
+            storageAccount = CloudStorageAccount.Parse(ConfigurationManager.ConnectionStrings["happyfacesstorageaccount"].ConnectionString);
+            //storageAccount = CloudStorageAccount.Parse(ConfigurationManager.AppSettings["happyfacesstorageaccount"]);
+            //storageAccount = CloudStorageAccount.Parse("providerName="System.Data.SqlClient" DefaultEndpointsProtocol=https;AccountName=storagehappyface;AccountKey=gZihl/lPhY5NxUMC6ujEln8MpMWsEOIB06TaRvuEYVqBZ/Ydzn+jABXhpabJ8wD");
+
+            // Create the blob client.
+            blobClient = storageAccount.CreateCloudBlobClient();
+
+            // Retrieve reference to a previously created container.
+            container = blobClient.GetContainerReference(ConfigurationManager.AppSettings["ImageContainer"]);
+
+            // Retrieve reference to a blob.
+            blockBlob = container.GetBlockBlobReference(filePath);
 
             bitmapSource.BeginInit();
             bitmapSource.CacheOption = BitmapCacheOption.None;
-            bitmapSource.UriSource = fileUri;
+            bitmapSource.StreamSource = blockBlob.OpenRead();
             bitmapSource.EndInit();
 
             FacePhoto.Source = bitmapSource;
 
             // Detect any faces in the image.
             Title = "Detecting...";
-            faces = await UploadAndDetectFaces(filePath);
+            faces = await UploadAndDetectFaces(blockBlob.OpenRead());
             Title = String.Format("Detection Finished. {0} face(s) detected", faces.Length);
 
             if (faces.Length > 0)
@@ -164,7 +184,7 @@ namespace DetectHappyFaces
 
         // Uploads the image file and calls Detect Faces.
 
-        private async Task<Face[]> UploadAndDetectFaces(string imageFilePath)
+        private async Task<Face[]> UploadAndDetectFaces(Stream blobStream)
         {
             // The list of Face attributes to return.
             IEnumerable<FaceAttributeType> faceAttributes =
@@ -173,11 +193,9 @@ namespace DetectHappyFaces
             // Call the Face API.
             try
             {
-                using (Stream imageFileStream = File.OpenRead(imageFilePath))
-                {
-                    Face[] faces = await faceServiceClient.DetectAsync(imageFileStream, returnFaceId: true, returnFaceLandmarks: false, returnFaceAttributes: faceAttributes);
-                    return faces;
-                }
+
+                Face[] faces = await faceServiceClient.DetectAsync(blobStream, returnFaceId: true, returnFaceLandmarks: false, returnFaceAttributes: faceAttributes);
+                return faces;
             }
             // Catch and display Face API errors.
             catch (FaceAPIException f)
